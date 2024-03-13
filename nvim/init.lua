@@ -25,7 +25,7 @@ Kickstart.nvim is a template for your own configuration.
 Kickstart Guide:
 
 I have left several `:help X` comments throughout the init.lua
-You should run that command and read that help section for more information.
+You should run that commrequire('leap').create_default_mappings()and and read that help section for more information.
 
 In addition, I have some `NOTE:` items throughout the file.
 These are for you, the reader to help understand what is happening. Feel free to delete
@@ -34,11 +34,14 @@ are first encountering a few different constructs in your nvim config.
 
 I hope you enjoy your Neovim journey,
 - TJ
-P.S. You can delete this when you're done too. It's your config now :)
+
 --]]
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are required (otherwise wrong leader will be used)
+-- disable netrw at the very start of your init.lua
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
@@ -58,7 +61,6 @@ if not vim.loop.fs_stat(lazypath) then
 end
 
 vim.opt.rtp:prepend(lazypath)
-
 -- [[ Configure plugins ]]
 -- NOTE: Here is where you install your plugins.
 --  You can configure plugins using the `config` key.
@@ -121,7 +123,7 @@ require('lazy').setup({
   },
   {'akinsho/toggleterm.nvim', version = "*", config = true},
   -- Useful plugin to show you pending keybinds.
-  { 'folke/which-key.nvim', opts = {} },
+  {'folke/which-key.nvim', opts = {} },
   {
     -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -160,7 +162,7 @@ require('lazy').setup({
       end,
     },
   },
-    -- colorscheme
+  -- colorscheme
   {
     "ellisonleao/gruvbox.nvim",
     priority = 1000, -- make sure to load this before all the other start plugins
@@ -182,6 +184,9 @@ require('lazy').setup({
         section_separators = '',
       },
     },
+    init = function()
+      vim.opt.showmode = false
+    end,
   },
 
   {
@@ -200,6 +205,9 @@ require('lazy').setup({
   {
     'nvim-telescope/telescope.nvim',
     branch = '0.1.x',
+    defaults = {
+      path_display={"smart"}
+    },
     dependencies = {
       'nvim-lua/plenary.nvim',
       -- Fuzzy Finder Algorithm which requires local dependencies to be built.
@@ -214,11 +222,22 @@ require('lazy').setup({
           return vim.fn.executable 'make' == 1
         end,
       },
+      { 
+        "nvim-telescope/telescope-live-grep-args.nvim" ,
+        -- This will not install any breaking changes.
+        -- For major updates, this must be adjusted manually.
+        version = "^1.0.0",
+      },
+      config = function()
+        require("telescope").load_extension("live_grep_args")
+      end
     },
   },
   -- "Harpoon"
-  { 'nvim-lua/plenary.nvim',
-    'ThePrimeagen/harpoon',
+  {
+    "ThePrimeagen/harpoon",
+    branch = "harpoon2",
+    dependencies = { "nvim-lua/plenary.nvim"},
   },
 
   {
@@ -229,7 +248,48 @@ require('lazy').setup({
     },
     build = ':TSUpdate',
   },
+  {
+    'rmagatti/auto-session',
+    config = function()
+      require('auto-session').setup {
+        log_level = vim.log.levels.ERROR,
+        auto_session_suppress_dirs = { '~/', '~/Projects', '~/Downloads', '/' },
+        auto_session_use_git_branch = false,
 
+        auto_session_enable_last_session = false,
+
+        -- ⚠️ This will only work if Telescope.nvim is installed
+        -- The following are already the default values, no need to provide them if these are already the settings you want.
+        session_lens = {
+          -- If load_on_setup is set to false, one needs to eventually call `require("auto-session").setup_session_lens()` if they want to use session-lens.
+          buftypes_to_ignore = {}, -- list of buffer types what should not be deleted from current session
+          load_on_setup = true,
+          theme_conf = { border = true },
+          previewer = false,
+        },
+      }
+
+      -- Set mapping for searching a session.
+      -- ⚠️ This will only work if Telescope.nvim is installed
+      vim.keymap.set('n', '<C-s>', require('auto-session.session-lens').search_session, {
+        noremap = true,
+      })
+    end,
+  },
+
+-- {
+--    "m4xshen/hardtime.nvim",
+--    dependencies = { "MunifTanjim/nui.nvim", "nvim-lua/plenary.nvim" },
+--    opts = {}
+--  },
+--
+--  {
+--    -- Highlight, edit, and navigate code
+--    'ggandor/leap.nvim',
+--    dependencies = {
+--      'tpope/vim-repeat'
+--    },
+--  },
   -- NOTE: Next Step on Your Neovim Journey: Add/Configure additional "plugins" for kickstart
   --       These are some example plugins that I've included in the kickstart repository.
   --       Uncomment any of the lines below to enable them.
@@ -254,6 +314,7 @@ vim.o.hlsearch = false
 
 -- Make line numbers default
 vim.wo.number = true
+vim.wo.relativenumber = true
 
 -- Enable mouse mode
 vim.o.mouse = 'a'
@@ -293,11 +354,29 @@ vim.o.termguicolors = true
 vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
 
 local builtin = require('telescope.builtin')
+local ts = require('telescope')
 vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
-vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+-- vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
 vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 
+
+vim.api.nvim_set_keymap('n', '<Leader>h', ':lua require("harpoon.ui").toggle_quick_menu()<CR>', {noremap = true, silent = true})
+
+-- Add current file to Harpoon
+vim.api.nvim_set_keymap('n', '<Leader>a', ':lua require("harpoon.mark").add_file()<CR>', {noremap = true, silent = true})
+
+-- Navigate to specific marked files
+vim.api.nvim_set_keymap('n', '<Leader>1', ':lua require("harpoon.ui").nav_file(1)<CR>', {noremap = true, silent = true})
+vim.api.nvim_set_keymap('n', '<Leader>2', ':lua require("harpoon.ui").nav_file(2)<CR>', {noremap = true, silent = true})
+vim.api.nvim_set_keymap('n', '<Leader>3', ':lua require("harpoon.ui").nav_file(3)<CR>', {noremap = true, silent = true})
+vim.api.nvim_set_keymap('n', '<Leader>4', ':lua require("harpoon.ui").nav_file(4)<CR>', {noremap = true, silent = true})
+
+-- Cycle through marked files
+vim.api.nvim_set_keymap('n', '<Leader>n', ':lua require("harpoon.ui").nav_next()<CR>', {noremap = true, silent = true})
+vim.api.nvim_set_keymap('n', '<Leader>p', ':lua require("harpoon.ui").nav_prev()<CR>', {noremap = true, silent = true})
+
+vim.api.nvim_set_keymap("n", "<leader>fg", ":lua require('telescope').extensions.live_grep_args.live_grep_args()<CR>", {noremap = true, silent = true})
 
 -- Remap for dealing with word wrap
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
@@ -322,21 +401,39 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 -- [[ Configure Telescope ]]
 -- See `:help telescope` and `:help telescope.setup()`
+local lga_actions = require("telescope-live-grep-args.actions")
+
 require('telescope').setup {
-  defaults = {
-    mappings = {
+  extensions = {
+    live_grep_args = {
+      auto_quoting = true, -- enable/disable auto-quoting
+      -- define mappings, e.g.
+      mappings = { -- extend mappings
       i = {
-        ['<C-u>'] = false,
-        ['<C-d>'] = false,
+        ["<C-k>"] = lga_actions.quote_prompt(),
+        ["<C-i>"] = lga_actions.quote_prompt({ postfix = " --iglob " }),
       },
     },
-  	pickers = {
-		  find_files = {
-			  -- `hidden = true` will still show the inside of `.git/` as it's not `.gitignore`d.
-			  find_command = { "rg", "--files", "--hidden", "--glob", "!**/.git/*" },
-		  },
-	  },
+    -- ... also accepts theme settings, for example:
+    -- theme = "dropdown", -- use dropdown theme
+    -- theme = { }, -- use own theme spec
+    -- layout_config = { mirror=true }, -- mirror preview pane
+  }
+},
+defaults = {
+  mappings = {
+    i = {
+      ['<C-u>'] = false,
+      ['<C-d>'] = false,
+    },
   },
+  pickers = {
+    find_files = {
+      -- `hidden = true` will still show the inside of `.git/` as it's not `.gitignore`d.
+      find_command = { "rg", "--files", "--hidden", "--glob", "!**/.git/*" },
+    },
+  },
+},
 }
 
 -- Enable telescope fzf native, if installed
@@ -457,7 +554,7 @@ vim.defer_fn(function()
       swap = {
         enable = true,
         swap_next = {
-          ['<leader>a'] = '@parameter.inner',
+          ['<leader>B'] = '@parameter.inner',
         },
         swap_previous = {
           ['<leader>A'] = '@parameter.inner',
@@ -517,23 +614,22 @@ require('which-key').register {
   ['<leader>c'] = { name = '[C]ode', _ = 'which_key_ignore' },
   ['<leader>d'] = { name = '[D]ocument', _ = 'which_key_ignore' },
   ['<leader>g'] = { name = '[G]it', _ = 'which_key_ignore' },
-  ['<leader>h'] = { name = 'More git', _ = 'which_key_ignore' },
+  ['<leader>x'] = { name = 'More git', _ = 'which_key_ignore' },
   ['<leader>r'] = { name = '[R]ename', _ = 'which_key_ignore' },
   ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
   ['<leader>w'] = { name = '[W]orkspace', _ = 'which_key_ignore' },
 }
 
--- nvim-tree setup
--- disable netrw at the very start of your init.lua
-vim.g.loaded_netrw = 1
-vim.g.loaded_netrwPlugin = 1
 
 -- set termguicolors to enable highlight groups
 vim.opt.termguicolors = true
 
 -- empty setup using defaults
+-- nvim-tree setup
 require("nvim-tree").setup()
 require("toggleterm").setup()
+--require('leap').create_default_mappings()
+--require("hardtime").setup()
 -- require("harpoon").setup()
 
 -- OR setup with some options
